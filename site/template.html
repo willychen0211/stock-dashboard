@@ -1,0 +1,446 @@
+<!doctype html>
+<title>0050 追蹤室</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    color-scheme: light;
+    --bg:        #f4f5f1;
+    --surface:   #ffffff;
+    --surface-2: #eef0ea;
+    --ink:       #14161a;
+    --ink-2:     #565b52;
+    --muted:     #8b8f84;
+    --border:    rgba(20,22,20,0.10);
+    --accent:    #37507e;
+    --accent-soft: #dde4f0;
+    --up:        #e34948;
+    --down:      #008300;
+    --support:   #2a78d6;
+    --resistance:#c9820a;
+    --grid:      #e2e3dc;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --bg:        #10120f;
+      --surface:   #1a1d18;
+      --surface-2: #20241d;
+      --ink:       #f3f4ef;
+      --ink-2:     #b7bbae;
+      --muted:     #82867a;
+      --border:    rgba(255,255,255,0.10);
+      --accent:    #8aa6d6;
+      --accent-soft: #253048;
+      --up:        #e66767;
+      --down:      #1fae1f;
+      --support:   #6da7ec;
+      --resistance:#e0a541;
+      --grid:      #2a2d26;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:        #10120f;
+    --surface:   #1a1d18;
+    --surface-2: #20241d;
+    --ink:       #f3f4ef;
+    --ink-2:     #b7bbae;
+    --muted:     #82867a;
+    --border:    rgba(255,255,255,0.10);
+    --accent:    #8aa6d6;
+    --accent-soft: #253048;
+    --up:        #e66767;
+    --down:      #1fae1f;
+    --support:   #6da7ec;
+    --resistance:#e0a541;
+    --grid:      #2a2d26;
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --bg:        #f4f5f1;
+    --surface:   #ffffff;
+    --surface-2: #eef0ea;
+    --ink:       #14161a;
+    --ink-2:     #565b52;
+    --muted:     #8b8f84;
+    --border:    rgba(20,22,20,0.10);
+    --accent:    #37507e;
+    --accent-soft: #dde4f0;
+    --up:        #e34948;
+    --down:      #008300;
+    --support:   #2a78d6;
+    --resistance:#c9820a;
+    --grid:      #e2e3dc;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    line-height:1.6;
+  }
+  .font-display{ font-family: ui-serif,"Noto Serif TC","PingFang TC",serif; }
+  .num{ font-family: "SF Mono","Cascadia Code",ui-monospace,monospace; font-variant-numeric: tabular-nums; }
+
+  .wrap{ max-width:1080px; margin:0 auto; padding:28px 20px 64px; }
+
+  header.top{
+    display:flex; justify-content:space-between; align-items:baseline;
+    gap:16px; flex-wrap:wrap; margin-bottom:22px;
+    border-bottom:1px solid var(--border); padding-bottom:16px;
+  }
+  header.top .brand{ font-size:13px; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; }
+  header.top h1{ font-size:22px; margin:2px 0 0; font-weight:600; }
+  header.top .updated{ font-size:12px; color:var(--muted); text-align:right; }
+  header.top .updated b{ color:var(--ink-2); font-weight:600; }
+
+  .stat-row{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+    gap:1px; background:var(--border); border:1px solid var(--border);
+    border-radius:10px; overflow:hidden; margin-bottom:26px;
+  }
+  .stat{ background:var(--surface); padding:14px 16px; }
+  .stat .label{ font-size:11px; color:var(--muted); letter-spacing:.04em; }
+  .stat .value{ font-size:20px; font-weight:600; margin-top:4px; }
+  .stat .value.big{ font-size:28px; }
+  .chg-up{ color:var(--up); }
+  .chg-down{ color:var(--down); }
+
+  section{ margin-bottom:30px; }
+  section > h2{
+    font-size:15px; font-weight:600; margin:0 0 12px;
+    display:flex; align-items:center; gap:8px;
+  }
+  section > h2 .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  section > p.sub{ font-size:13px; color:var(--ink-2); margin:-6px 0 14px; }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:18px 20px;
+  }
+
+  #chart-card{ padding:16px 8px 8px; }
+  #chart-wrap{ position:relative; }
+  #chart-svg{ width:100%; height:auto; display:block; }
+  .crosshair-line{ stroke:var(--muted); stroke-width:1; stroke-dasharray:2,3; pointer-events:none; }
+  .tooltip-box{
+    position:absolute; pointer-events:none; background:var(--surface);
+    border:1px solid var(--border); border-radius:8px; padding:8px 10px;
+    font-size:12px; box-shadow:0 4px 14px rgba(0,0,0,0.12); min-width:150px;
+    display:none; z-index:5;
+  }
+  .tooltip-box .t-date{ font-weight:600; margin-bottom:4px; color:var(--ink); }
+  .tooltip-box .t-row{ display:flex; justify-content:space-between; gap:10px; color:var(--ink-2); }
+  .tooltip-box .t-row b{ color:var(--ink); font-weight:600; }
+
+  .legend{
+    display:flex; flex-wrap:wrap; gap:14px 20px; padding:12px 12px 4px;
+    font-size:12px; color:var(--ink-2);
+  }
+  .legend .item{ display:flex; align-items:center; gap:6px; }
+  .legend .swatch{ width:14px; height:3px; border-radius:2px; display:inline-block; }
+  .legend .cbody{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+  .legend .dash{ background-image: linear-gradient(90deg, currentColor 60%, transparent 40%); background-size: 6px 3px; height:2px; }
+
+  .levels{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+  @media (max-width:560px){ .levels{ grid-template-columns:1fr; } }
+  .level-group h3{ font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 8px; font-weight:600; }
+  .level-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .level-list li{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--surface-2); border-radius:7px; padding:7px 10px; font-size:13px;
+  }
+  .level-list .lp{ font-weight:600; }
+  .level-list .lt{ font-size:11px; color:var(--muted); }
+  .level-list.support .lp{ color:var(--support); }
+  .level-list.resistance .lp{ color:var(--resistance); }
+
+  .glossary{ margin-top:14px; }
+  .glossary details{
+    border-top:1px solid var(--border); padding:10px 2px;
+  }
+  .glossary details:first-child{ border-top:none; }
+  .glossary summary{
+    cursor:pointer; font-size:13.5px; font-weight:600; color:var(--ink);
+    list-style:none; display:flex; align-items:center; gap:8px;
+  }
+  .glossary summary::-webkit-details-marker{ display:none; }
+  .glossary summary::before{ content:"+"; color:var(--accent); font-weight:700; width:14px; }
+  .glossary details[open] summary::before{ content:"–"; }
+  .glossary .gbody{ font-size:13px; color:var(--ink-2); margin:8px 0 2px 22px; }
+
+  .brief-card{ display:flex; flex-direction:column; gap:10px; }
+  .brief-card .meta{ font-size:11.5px; color:var(--muted); }
+  .brief-card h3{ font-size:14.5px; margin:0; font-weight:600; }
+  .brief-card .body p{ margin:0 0 10px; font-size:13.5px; color:var(--ink-2); }
+  .brief-card .body p:last-child{ margin-bottom:0; }
+  .brief-card .body b{ color:var(--ink); }
+  .source-tag{
+    display:inline-block; font-size:11px; color:var(--accent);
+    background:var(--accent-soft); padding:1px 7px; border-radius:5px; margin-right:6px;
+  }
+
+  .disclaimer{
+    font-size:11.5px; color:var(--muted); border-top:1px solid var(--border);
+    padding-top:16px; margin-top:36px;
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="brand">個人股票追蹤室</div>
+      <h1 class="font-display">{{SYMBOL_NAME}}（{{SYMBOL}}）</h1>
+    </div>
+    <div class="updated">
+      <div>{{UPDATE_LABEL}} · <b>{{LAST_UPDATE}}</b></div>
+      <div>資料來源：Yahoo Finance（日K，延遲資料，非即時報價）</div>
+    </div>
+  </header>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="label">收盤價</div>
+      <div class="value big num">{{CURRENT_PRICE}}</div>
+    </div>
+    <div class="stat">
+      <div class="label">當日漲跌</div>
+      <div class="value num {{CHANGE_CLASS}}">{{DAY_CHANGE}}（{{DAY_CHANGE_PCT}}）</div>
+    </div>
+    <div class="stat">
+      <div class="label">當日高／低</div>
+      <div class="value num">{{DAY_HIGH}} / {{DAY_LOW}}</div>
+    </div>
+    <div class="stat">
+      <div class="label">52週高／低</div>
+      <div class="value num">{{WEEK52_HIGH}} / {{WEEK52_LOW}}</div>
+    </div>
+  </div>
+
+  <section>
+    <h2><span class="dot"></span>K線圖與支撐壓力</h2>
+    <p class="sub">滑鼠移到圖上可以看到每一天的開高低收；虛線是最近波段裡價格「常常停下來」的位置。</p>
+    <div class="card" id="chart-card">
+      <div id="chart-wrap">
+        <svg id="chart-svg" viewBox="0 0 1000 460" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tooltip-box" id="tooltip"></div>
+      </div>
+      <div class="legend">
+        <span class="item"><span class="cbody" style="background:var(--up)"></span>上漲K棒（收盤價比開盤價高）</span>
+        <span class="item"><span class="cbody" style="background:var(--down)"></span>下跌K棒（收盤價比開盤價低）</span>
+        <span class="item"><span class="swatch" style="background:#2a78d6"></span>20日均線</span>
+        <span class="item"><span class="swatch" style="background:#4a3aa7"></span>60日均線</span>
+        <span class="item"><span class="swatch dash" style="color:var(--support);background-image:linear-gradient(90deg,var(--support) 60%,transparent 40%)"></span>支撐區</span>
+        <span class="item"><span class="swatch dash" style="color:var(--resistance);background-image:linear-gradient(90deg,var(--resistance) 60%,transparent 40%)"></span>壓力區</span>
+      </div>
+    </div>
+
+    <div class="levels">
+      <div class="level-group">
+        <h3>支撐區（下方，過去價格止跌的位置）</h3>
+        <ul class="level-list support">{{SUPPORT_LIST_HTML}}</ul>
+      </div>
+      <div class="level-group">
+        <h3>壓力區（上方，過去價格漲不太過去的位置）</h3>
+        <ul class="level-list resistance">{{RESISTANCE_LIST_HTML}}</ul>
+      </div>
+    </div>
+
+    <div class="glossary card" style="margin-top:16px;">
+      <div class="glossary">
+        <details>
+          <summary>什麼是支撐與壓力？</summary>
+          <div class="gbody">支撐（support）是價格跌到某個區域附近就比較容易止跌、甚至反彈的位置，可以想成很多人覺得「便宜、值得買」而願意進場承接。壓力（resistance）則相反，是價格漲到某個區域附近容易漲不動、甚至回落的位置，代表不少人覺得「有點貴」，願意在這裡賣出。這些區域不是精確的一條線，而是一個「帶狀」的價格範圍，越多次在同一區域附近止漲或止跌，這個區域就越重要。</div>
+        </details>
+        <details>
+          <summary>K棒（K線）在看什麼？</summary>
+          <div class="gbody">一根K棒代表一天的價格變化，包含開盤價（開始的價格）、收盤價（結束的價格）、最高價與最低價。K棒中間比較粗的部分是「實體」，代表開盤到收盤的價格範圍；上下細細的線叫「影線」，代表當天曾經到過的最高、最低價。台股習慣用紅色代表上漲、綠色代表下跌（跟美股習慣的紅跌綠漲剛好相反，要小心別搞混）。</div>
+        </details>
+        <details>
+          <summary>均線（MA）是什麼？</summary>
+          <div class="gbody">均線是把過去N天的收盤價取平均，畫成一條線，用來看價格的中長期方向，會比每天跳動的價格更平滑。20日均線大致反映「最近一個月的平均成本」，60日均線大致反映「最近一季的平均成本」。如果價格站在均線之上，通常代表短期偏強；跌破均線，則要留意轉弱的可能。均線本身也常常變成動態的支撐或壓力。</div>
+        </details>
+        <details>
+          <summary>成交量代表什麼？</summary>
+          <div class="gbody">成交量是當天有多少股數被買賣成交，反映市場關注度與資金參與的熱度。如果價格上漲同時成交量也放大，代表這波上漲比較有資金支撐；如果價格上漲但成交量很小，這個漲勢的力道可能要打個問號。</div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="dot"></span>盤後新聞與分析師觀點</h2>
+    <p class="sub">整理當天收盤後跟這支股票有關的新聞，以及分析師怎麼看接下來的走勢。</p>
+    <div class="card brief-card">
+      {{NEWS_SECTION_HTML}}
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="dot"></span>盤前全球市場整理</h2>
+    <p class="sub">開盤前先看一下美股跟其他主要市場晚上發生了什麼事，幫你抓一下今天台股開盤可能偏向哪個方向。</p>
+    <div class="card brief-card">
+      {{GLOBAL_MARKET_SECTION_HTML}}
+    </div>
+  </section>
+
+  <p class="disclaimer">
+    這個頁面是我自己在追蹤 {{SYMBOL_NAME}} 用的資訊整理工具，內容包含公開新聞摘要與模型整理的分析師觀點，僅供自己參考、學習用，不構成投資建議。價格資料延遲、支撐壓力區也是用歷史價格統計出來的參考區間，不是保證線，實際交易前務必自行確認即時報價與最新消息。
+  </p>
+</div>
+
+<script id="chart-data" type="application/json">{{CHART_DATA_JSON}}</script>
+<script>
+(function(){
+  var data = JSON.parse(document.getElementById('chart-data').textContent);
+  var candles = data.candles.slice(-90);
+  var support = data.support || [];
+  var resistance = data.resistance || [];
+
+  var svg = document.getElementById('chart-svg');
+  var W = 1000, H = 460;
+  var padL = 54, padR = 70, padT = 16, padB = 30;
+  var plotW = W - padL - padR;
+  var plotH = H - padT - padB;
+
+  var lows = candles.map(function(c){return c.l;});
+  var highs = candles.map(function(c){return c.h;});
+  var allLevels = support.concat(resistance).map(function(s){return s.price;});
+  var minP = Math.min.apply(null, lows.concat(allLevels));
+  var maxP = Math.max.apply(null, highs.concat(allLevels));
+  var pad = (maxP - minP) * 0.06;
+  minP -= pad; maxP += pad;
+
+  function x(i){ return padL + (i + 0.5) * (plotW / candles.length); }
+  function y(p){ return padT + (maxP - p) / (maxP - minP) * plotH; }
+  var candleW = Math.max(2, (plotW / candles.length) * 0.62);
+
+  function fmtDate(t){
+    var d = new Date(t * 1000);
+    return (d.getUTCMonth()+1) + '/' + d.getUTCDate();
+  }
+  var ns = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs){
+    var e = document.createElementNS(ns, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // gridlines + y labels (skip a grid label if a support/resistance label will sit near it)
+  var levelYs = support.concat(resistance).map(function(s){ return y(s.price); });
+  var gridSteps = 5;
+  for (var g=0; g<=gridSteps; g++){
+    var gp = minP + (maxP-minP)*g/gridSteps;
+    var gy = y(gp);
+    svg.appendChild(el('line',{x1:padL,x2:W-padR,y1:gy,y2:gy,stroke:'var(--grid)','stroke-width':1}));
+    var tooClose = levelYs.some(function(ly){ return Math.abs(ly-gy) < 13; });
+    if (!tooClose){
+      var lbl = el('text',{x:W-padR+8,y:gy+4,'font-size':11,fill:'var(--muted)'});
+      lbl.textContent = gp.toFixed(1);
+      svg.appendChild(lbl);
+    }
+  }
+
+  // x labels (sparse)
+  var step = Math.ceil(candles.length/7);
+  candles.forEach(function(c,i){
+    if (i % step === 0){
+      var t = el('text',{x:x(i),y:H-8,'font-size':10,fill:'var(--muted)','text-anchor':'middle'});
+      t.textContent = fmtDate(c.t);
+      svg.appendChild(t);
+    }
+  });
+
+  // support / resistance lines — draw the dashed line at its true price,
+  // but nudge overlapping labels apart so text never stacks on itself
+  var levelDefs = support.map(function(s){ return {price:s.price, color:'var(--support)'}; })
+    .concat(resistance.map(function(s){ return {price:s.price, color:'var(--resistance)'}; }));
+  levelDefs.forEach(function(l){ l.trueY = y(l.price); l.labelY = l.trueY; });
+  levelDefs.sort(function(a,b){ return a.trueY - b.trueY; });
+  var minGap = 12;
+  for (var li=1; li<levelDefs.length; li++){
+    if (levelDefs[li].labelY - levelDefs[li-1].labelY < minGap){
+      levelDefs[li].labelY = levelDefs[li-1].labelY + minGap;
+    }
+  }
+  levelDefs.forEach(function(l){
+    svg.appendChild(el('line',{x1:padL,x2:W-padR,y1:l.trueY,y2:l.trueY,stroke:l.color,'stroke-width':1.4,'stroke-dasharray':'5,4'}));
+    var t = el('text',{x:W-padR+8,y:l.labelY+4,'font-size':10.5,fill:l.color,'font-weight':600});
+    t.textContent = l.price.toFixed(1);
+    svg.appendChild(t);
+    if (Math.abs(l.labelY - l.trueY) > 1){
+      svg.appendChild(el('line',{x1:W-padR,x2:W-padR+7,y1:l.trueY,y2:l.labelY,stroke:l.color,'stroke-width':1,opacity:0.5}));
+    }
+  });
+
+  // MA lines
+  function maPath(key, color){
+    var pts = [];
+    candles.forEach(function(c,i){
+      if (c[key] != null) pts.push(x(i) + ',' + y(c[key]));
+    });
+    if (pts.length < 2) return;
+    svg.appendChild(el('polyline',{points:pts.join(' '), fill:'none', stroke:color, 'stroke-width':1.6, opacity:0.9}));
+  }
+  maPath('ma20', '#2a78d6');
+  maPath('ma60', '#4a3aa7');
+
+  // candles
+  var candleGroup = el('g',{});
+  candles.forEach(function(c,i){
+    var up = c.c >= c.o;
+    var color = up ? 'var(--up)' : 'var(--down)';
+    var cx = x(i);
+    svg.appendChild(el('line',{x1:cx,x2:cx,y1:y(c.h),y2:y(c.l),stroke:color,'stroke-width':1}));
+    var yOpen = y(c.o), yClose = y(c.c);
+    var bodyTop = Math.min(yOpen,yClose);
+    var bodyH = Math.max(1.2, Math.abs(yOpen-yClose));
+    var rect = el('rect',{x:cx-candleW/2, y:bodyTop, width:candleW, height:bodyH, fill:color, 'data-i':i});
+    candleGroup.appendChild(rect);
+  });
+  svg.appendChild(candleGroup);
+
+  // hover interaction
+  var tooltip = document.getElementById('tooltip');
+  var wrap = document.getElementById('chart-wrap');
+  var hoverLine = el('line',{class:'crosshair-line', x1:0,x2:0,y1:padT,y2:H-padB, visibility:'hidden'});
+  svg.appendChild(hoverLine);
+
+  function pointerMove(evt){
+    var rect = svg.getBoundingClientRect();
+    var scaleX = W / rect.width;
+    var mx = (evt.clientX - rect.left) * scaleX;
+    var i = Math.round((mx - padL) / (plotW/candles.length) - 0.5);
+    if (i < 0) i = 0;
+    if (i > candles.length-1) i = candles.length-1;
+    var c = candles[i];
+    var cx = x(i);
+    hoverLine.setAttribute('x1', cx); hoverLine.setAttribute('x2', cx);
+    hoverLine.setAttribute('visibility','visible');
+
+    var d = new Date(c.t*1000);
+    var dateStr = d.getUTCFullYear()+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();
+    var up = c.c >= c.o;
+    tooltip.innerHTML =
+      '<div class="t-date">'+dateStr+'</div>' +
+      '<div class="t-row"><span>開盤</span><b>'+c.o.toFixed(2)+'</b></div>' +
+      '<div class="t-row"><span>最高</span><b>'+c.h.toFixed(2)+'</b></div>' +
+      '<div class="t-row"><span>最低</span><b>'+c.l.toFixed(2)+'</b></div>' +
+      '<div class="t-row"><span>收盤</span><b style="color:'+(up?'var(--up)':'var(--down)')+'">'+c.c.toFixed(2)+'</b></div>' +
+      '<div class="t-row"><span>成交量</span><b>'+Math.round(c.v/1000).toLocaleString()+' 張</b></div>';
+
+    var wrapRect = wrap.getBoundingClientRect();
+    var px = (cx/W) * wrapRect.width;
+    var left = px + 12;
+    if (left + 170 > wrapRect.width) left = px - 170;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = '10px';
+    tooltip.style.display = 'block';
+  }
+  svg.addEventListener('mousemove', pointerMove);
+  svg.addEventListener('mouseleave', function(){
+    tooltip.style.display='none';
+    hoverLine.setAttribute('visibility','hidden');
+  });
+})();
+</script>
